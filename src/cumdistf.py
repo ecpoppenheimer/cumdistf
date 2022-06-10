@@ -207,6 +207,10 @@ class CumulativeDistributionFunction1D:
         """Second, default calling convention.  Calls cdf()"""
         return self.cdf(points)
 
+    @property
+    def x_res(self):
+        return self._res
+
 
 class CumulativeDistributionFunction2D:
     """
@@ -233,8 +237,8 @@ class CumulativeDistributionFunction2D:
     """
     def __init__(self, eval_limits, density=None, direction="both"):
         # declaration of class variables
-        self.x_res = -1
-        self.y_res = -1
+        self._x_res = -1
+        self._y_res = -1
         self._y_cdf = None
         self._x_cdfs = None
         self._y_icdf = None
@@ -260,7 +264,7 @@ class CumulativeDistributionFunction2D:
         """
         if self._density is None:
             self._density = np.array(density, dtype=np.float32)
-            self.x_res, self.y_res = self._density.shape
+            self._x_res, self._y_res = self._density.shape
         else:
             self._density += np.array(density, dtype=np.float32)
 
@@ -269,8 +273,8 @@ class CumulativeDistributionFunction2D:
         Flush accumulated probability density data.  Does not affect the CDF.
         """
         self._density = None
-        self.x_res = -1
-        self.y_res = -1
+        self._x_res = -1
+        self._y_res = -1
 
     def compute(self, density=None, direction="both", epsilon=1e-10):
         """
@@ -333,15 +337,15 @@ class CumulativeDistributionFunction2D:
             # Interpolate to generate the CDF. We need new x and y coordinate lists with
             # one extra element, since the cumsum adds a zero at the start.
 
-            interpolate_x = np.linspace(self.x_min, self.x_max, self.x_res + 1)
-            interpolate_y = np.linspace(self.y_min, self.y_max, self.y_res + 1)
+            interpolate_x = np.linspace(self.x_min, self.x_max, self._x_res + 1)
+            interpolate_y = np.linspace(self.y_min, self.y_max, self._y_res + 1)
 
             # compute the forward / normal CDF
             if do_forward:
                 self._y_cdf = interp1d(y_sum, interpolate_y)
                 self._x_cdfs = [
                     interp1d(x_sums[:, i], interpolate_x)
-                    for i in range(self.y_res)
+                    for i in range(self._y_res)
                 ]
             else:
                 self._y_cdf = None
@@ -352,7 +356,7 @@ class CumulativeDistributionFunction2D:
                 self._y_icdf = interp1d(interpolate_y, y_sum)
                 self._x_icdfs = [
                     interp1d(interpolate_x, x_sums[:, i])
-                    for i in range(self.y_res)
+                    for i in range(self._y_res)
                 ]
             else:
                 self._x_icdfs = None
@@ -398,13 +402,13 @@ class CumulativeDistributionFunction2D:
             y_out = self._y_cdf(y)
 
             # select which x quantile curve to use.
-            x_curve = (y_out - self.y_min) * self.y_res / (self.y_max - self.y_min)
+            x_curve = (y_out - self.y_min) * self._y_res / (self.y_max - self.y_min)
             x_curve = np.floor(x_curve).astype("int")
 
             # map the x coordinate.
             x_range = np.arange(x.shape[0])
             x_out = np.zeros_like(x)
-            for i in range(self.y_res):
+            for i in range(self._y_res):
                 mask = x_curve == i
                 x_out[x_range[mask]] = self._x_cdfs[i](x[mask])
 
@@ -448,13 +452,13 @@ class CumulativeDistributionFunction2D:
             y_out = self._y_icdf(y)
 
             # select which x quantile curve to use.
-            x_curve = y_out * (self.y_res - 1)
+            x_curve = y_out * (self._y_res - 1)
             x_curve = np.floor(x_curve).astype("int")
 
             # map the x coordinate.
             x_range = np.arange(x.shape[0])
             x_out = np.zeros_like(x)
-            for i in range(self.y_res):
+            for i in range(self._y_res):
                 mask = x_curve == i
                 x_out[x_range[mask]] = self._x_icdfs[i](x[mask])
 
@@ -474,3 +478,11 @@ class CumulativeDistributionFunction2D:
     def __call__(self, points):
         """Second, default calling convention.  Calls cdf()"""
         return self.cdf(points)
+
+    @property
+    def x_res(self):
+        return self._x_res
+
+    @property
+    def y_res(self):
+        return self._y_res
