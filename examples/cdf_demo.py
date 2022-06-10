@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import cumdistf
 
 # parameters
 x_range = (-1.5, 1.5)
@@ -34,7 +35,7 @@ ax00.set_aspect("equal")
 ax00.set_title("Given Input")
 
 # make the cdf
-given_cdf = distributions.CumulativeDensityFunction((x_range, y_range), given_density)
+given_cdf = cumdistf.CumulativeDistributionFunction2D((x_range, y_range), given_density)
 
 # make a random sample of points, which live in the domain (0, 0) -> (1, 1)
 random_sample = np.random.uniform(0.0, 1.0, (sample_count, 2))
@@ -55,7 +56,7 @@ ax01.set_aspect("equal")
 ax01.set_title("Desired Output")
 
 # make and sample the goal cdf
-goal_cdf = distributions.CumulativeDensityFunction((x_range, y_range), goal_density)
+goal_cdf = cumdistf.CumulativeDistributionFunction2D((x_range, y_range), goal_density)
 mapped_goal = goal_cdf(random_sample)
 
 # plot the goal sample
@@ -67,7 +68,7 @@ ax11.set_aspect("equal")
 ax11.set_title("Sampled Goal")
 
 # plot the transformation
-ax2 = fig.add_subplot(gs[:,2])
+ax2 = fig.add_subplot(gs[:, 2])
 ax2.set_title("Transformation")
 ax2.scatter(mapped_sample[:, 0], mapped_sample[:, 1], color="blue")
 ax2.scatter(mapped_goal[:, 0], mapped_goal[:, 1], color="green")

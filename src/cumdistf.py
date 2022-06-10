@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-class CumulativeDistributionFunction:
+class CumulativeDistributionFunction2D:
     """
     Class based implementation of the above flatten distribution function, since I have
     realised that I will in fact often want to perform the CDF operation on a different

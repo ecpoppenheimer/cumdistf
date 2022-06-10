@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import tfrt.distributions as distributions
+import cumdistf
 
 # parameters
 x_range = (-3.0, 3.0)
@@ -21,7 +21,7 @@ fig, axes = plt.subplots(1, 3)
 axes[0].imshow(density.T, origin="lower")
 
 # make the cdf
-cdf = distributions.CumulativeDensityFunction((x_range, y_range), density)
+cdf = cumdistf.CumulativeDistributionFunction2D((x_range, y_range), density)
 
 # make a random sample of points, which live in the domain (0, 0) -> (1, 1)
 random_sample = np.random.uniform(0.0, 1.0, (sample_count, 2))
