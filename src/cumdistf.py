@@ -6,6 +6,208 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
+class CumulativeDistributionFunction1D:
+    """
+    Class based implementation of the above flatten distribution function, since I have
+    realised that I will in fact often want to perform the CDF operation on a different
+    set of data than was used to generate it (need higher resolution on the CDF generation
+    than in the utilization).  This class can compute both a cumulative density function
+    (forward direction, can be used to map a uniform distribution into a non-uniform
+    one) and an inverse cumulative density function (backward direction, can be used to
+    map a non-uniform distribution into a uniform one).
+
+    Parameters
+    ----------
+    eval_limits : tuple
+        This is a tuple that defines the domain of the distribution resolution.  It must be (x_start, x_end).
+    density : 2d tensor-like, optional
+        Defaults to None.  If non-none, compute is called on this density by the
+        constructor.
+    direction : str, optional
+        See compute() only has effect if density is not None.
+    """
+    def __init__(self, eval_limits, density=None, direction="both"):
+        # declaration of class variables
+        self._res = -1
+        self._cdf = None
+        self._icdf = None
+
+        self.x_min, self.x_max = eval_limits
+        if density is None:
+            self._density = None
+        else:
+            self.compute(density, direction)
+
+    def accumulate_density(self, density):
+        """
+        Add histogramed density data to the storage, but DOES NOT UPDATE THE CDF!
+        Parameters
+        ----------
+        density : array_like
+            A batch of 2D array of probability density data (typically will come
+            from a histogram).  Must be the same shape and dtype as previously
+            submitted data.
+
+        """
+        if self._density is None:
+            self._density = np.array(density, dtype=np.float32)
+            self._res = self._density.shape[0]
+        else:
+            self._density += np.array(density, dtype=np.float32)
+
+    def clear_density(self):
+        """
+        Flush accumulated probability density data.  Does not affect the CDF.
+        """
+        self._density = None
+        self._res = -1
+
+    def compute(self, density=None, direction="both", epsilon=1e-10):
+        """
+
+        Parameters
+        ----------
+        density : array_like, optional
+            If None, defaults to use the density that has been accumulated by previous
+            calls to accumulate_density, if you desire to use that calling convention.
+            If non-None, this data is used instead and ACCUMULATED DATA IS CLEARED.
+
+            A batch of 2D array of probability density data (typically will come
+            from a histogram).
+
+        direction : string, optional
+            Defaults to "both".  May be "forward", "inverse" or "both".  Chooses which
+            kind of CFD to compute, where forward is the standard.
+
+        epsilon : float, optional
+            Defaults to 1e-6.  A small value added everywhere to the density to
+            prevent divide by zero, which can happen when an entire row has zero density.
+
+        """
+        # set the density, if it was specified
+        if density is not None:
+            self.clear_density()
+            self.accumulate_density(density)
+
+        # process the direction option
+        if direction not in {"forward", "inverse", "both"}:
+            raise ValueError(
+                "CumulativeDensityFunction: direction must be one of {'forward', "
+                "'backward', 'both'}"
+            )
+        do_forward = False
+        do_backward = False
+        if direction in {"forward", "both"}:
+            do_forward = True
+        if direction in {"inverse", "both"}:
+            do_backward = True
+
+        # Compute the cumulative density
+        if self._density is not None:
+            # pad the density function, since we want our cumsums to start from zero.
+            density = self._density + epsilon
+            density = np.pad(density, ((1, 0),), mode="constant", constant_values=0)
+            cumsum = np.cumsum(density)
+
+            # rescale the sums to go between 0 and 1
+            cumsum /= cumsum[-1]
+
+            # Interpolate to generate the CDF. We need new x coordinate lists with
+            # one extra element, since the cumsum adds a zero at the start.
+            interpolate_x = np.linspace(self.x_min, self.x_max, self._res + 1)
+
+            # compute the forward / normal CDF
+            if do_forward:
+                self._cdf = interp1d(cumsum, interpolate_x)
+
+            else:
+                self._cdf = None
+
+            # compute the inverse CDF
+            if do_backward:
+                self._icdf = interp1d(interpolate_x, cumsum)
+            else:
+                self._icdf = None
+        else:
+            raise RuntimeError(
+                "CumulativeDensityFunction1D: cannot call compute before accumulating data."
+            )
+
+    @staticmethod
+    def _rescale(n, n_min, n_max):
+        return n * (n_max - n_min) / np.amax(n) + n_min
+
+    def cdf(self, points):
+        """
+        Evaluate the cumulative density function on a set of points.
+
+        Compute must be called first, to compute the cumulative sums, this
+        function only evaluates given a set of points.
+
+        Please note that this function maps input points from the domain (0, 1)
+        onto the output domain defined by the eval limits specified to the
+        constructor.
+
+        Parameters
+        ----------
+        points : tensor-like with shape (n, 2)
+            The points to map, using the (forward) cumulative density function.
+            If points are uniformly distributed, this function will map them so that
+            their density matches the density of this CDF.
+
+        Returns
+        -------
+        output : tensor-like with same shape and dtype as points
+            The mapped points.
+        """
+        if self._cdf is not None:
+            return self._cdf(points).astype(points.dtype)
+        else:
+            raise RuntimeError(
+                "CumulativeDensityFunction: Must call compute() with the correct "
+                "direction before evaluation."
+            )
+
+    def icdf(self, points):
+        """
+        Evaluate the inverse cumulative density function on a set of points.
+
+        Compute must be called first, to compute the cumulative sums, this
+        function only evaluates given a set of points.
+
+        Please note that this function maps input points from the domain
+        defined by the eval limits specified to the constructor onto the output
+        domain (0, 1).
+
+        Parameters
+        ----------
+        points : tensor-like with shape (n, 2)
+            The points to map, using the (backward) inverse cumulative density function.
+            If points are distributed like the density of this CDF, this function will
+            map them onto a uniform distribution.
+
+        Returns
+        -------
+        output : tensor-like with same shape and dtype as points
+            The mapped points.
+        """
+        if self._cdf is not None:
+            return self._icdf(points).astype(points.dtype)
+        else:
+            raise RuntimeError(
+                "CumulativeDensityFunction: Must call compute() with the correct "
+                "direction before evaluation."
+            )
+
+    def quantile(self, points):
+        """Alias for icdf()."""
+        return self.icdf(points)
+
+    def __call__(self, points):
+        """Second, default calling convention.  Calls cdf()"""
+        return self.cdf(points)
+
+
 class CumulativeDistributionFunction2D:
     """
     Class based implementation of the above flatten distribution function, since I have
@@ -31,8 +233,8 @@ class CumulativeDistributionFunction2D:
     """
     def __init__(self, eval_limits, density=None, direction="both"):
         # declaration of class variables
-        self.x_res = 10
-        self.y_res = 10
+        self.x_res = -1
+        self.y_res = -1
         self._y_cdf = None
         self._x_cdfs = None
         self._y_icdf = None
@@ -67,6 +269,8 @@ class CumulativeDistributionFunction2D:
         Flush accumulated probability density data.  Does not affect the CDF.
         """
         self._density = None
+        self.x_res = -1
+        self.y_res = -1
 
     def compute(self, density=None, direction="both", epsilon=1e-10):
         """
