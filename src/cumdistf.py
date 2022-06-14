@@ -1,5 +1,5 @@
 """
-N-d cumulative distribution function / quantile function.
+Convenience classes to handle 1 and 2 dimensional discrete cumulative distribution functions / quantile functions.
 """
 
 import numpy as np
@@ -8,13 +8,39 @@ from scipy.interpolate import interp1d
 
 class CumulativeDistributionFunction1D:
     """
-    Class based implementation of the above flatten distribution function, since I have
-    realised that I will in fact often want to perform the CDF operation on a different
-    set of data than was used to generate it (need higher resolution on the CDF generation
-    than in the utilization).  This class can compute both a cumulative density function
-    (forward direction, can be used to map a uniform distribution into a non-uniform
-    one) and an inverse cumulative density function (backward direction, can be used to
-    map a non-uniform distribution into a uniform one).
+    1D cumulative distribution function and/or quantile function.
+
+    A cumulative distribution function is a mathematical tool that can map a uniform random sample onto some non-uniform
+    distribution.  A quantile function / inverse CDF does the opposite: map a non-uniform distribution onto a uniform
+    region.  These two operations can even be chained to build a mapping between two different non-uniform
+    distributions.
+
+    This class acts both computes a CDF / iCDF and also can act as store of the data used to build them.  The
+    constructor requires the working domain as a parameter, and may or may not receive a density function.  If a
+    density function is provided to the constructor, it will build the CDF immediately, but density can be omitted
+    during class construction and added later using the accumulate functions.  Accumulate_density() accepts an already
+    evaluated density function, while accumulate_points() accepts and bins a set of points to form the density.
+
+    Please note that by "density function" I actually mean a density array.  This class only handles discrete CDFs, that
+    are defined by a density array.  This density can come from a histogram, or from evaluating an analytic function on
+    a grid.  This class provides a histogram convenience function, but cannot accept an analytic function.
+
+    If density is not given to the constructor, the class will not evaluate until compute() is called.  This allows for
+    data to be generated slowly over time, and avoids unnecessary computation being wasted before all data is prepared.
+    If density is given to the constructor, compute() is called right away.
+
+    The CDF is not usable until compute() has been called.  Once compute() has been called, the class can be reset by
+    calling clear_density(), which deletes all data and prepares the class to be used again on a different set of data.
+
+    By default, this class computes both a forward cumulative distribution function and an inverse CDF or quantile
+    function.  If only one is needed, the parameter "direction" can be given to compute().  "forward" corresponds to
+    the CDF and "backward" to the quantile / iCDF.
+
+    Once compute() has been called, the CDF can be evaluated by calling the class, or calling self.cdf().  The
+    quantile / iCDF are accessed by calling their associated functions quantile() and icdf() are aliases of each other.
+    These functions accept sets of points and return mapped points with the same shape.
+
+    See https://en.wikipedia.org/wiki/Cumulative_distribution_function for reference.
 
     Parameters
     ----------
@@ -270,15 +296,39 @@ class CumulativeDistributionFunction1D:
 
 class CumulativeDistributionFunction2D:
     """
-    Class based implementation of the above flatten distribution function, since I have
-    realised that I will in fact often want to perform the CDF operation on a different
-    set of data than was used to generate it (need higher resolution on the CDF generation
-    than in the utilization).  This class can compute both a cumulative density function
-    (forward direction, can be used to map a uniform distribution into a non-uniform
-    one) and an inverse cumulative density function (backward direction, can be used to
-    map a non-uniform distribution into a uniform one).
+    2D cumulative distribution function and/or quantile function.
 
-    Note that this function uses numpy / scipy, and not tensorflow.
+    A cumulative distribution function is a mathematical tool that can map a uniform random sample onto some non-uniform
+    distribution.  A quantile function / inverse CDF does the opposite: map a non-uniform distribution onto a uniform
+    region.  These two operations can even be chained to build a mapping between two different non-uniform
+    distributions.
+
+    This class acts both computes a CDF / iCDF and also can act as store of the data used to build them.  The
+    constructor requires the working domain as a parameter, and may or may not receive a density function.  If a
+    density function is provided to the constructor, it will build the CDF immediately, but density can be omitted
+    during class construction and added later using the accumulate functions.  Accumulate_density() accepts an already
+    evaluated density function, while accumulate_points() accepts and bins a set of points to form the density.
+
+    Please note that by "density function" I actually mean a density array.  This class only handles discrete CDFs, that
+    are defined by a density array.  This density can come from a histogram, or from evaluating an analytic function on
+    a grid.  This class provides a histogram convenience function, but cannot accept an analytic function.
+
+    If density is not given to the constructor, the class will not evaluate until compute() is called.  This allows for
+    data to be generated slowly over time, and avoids unnecessary computation being wasted before all data is prepared.
+    If density is given to the constructor, compute() is called right away.
+
+    The CDF is not usable until compute() has been called.  Once compute() has been called, the class can be reset by
+    calling clear_density(), which deletes all data and prepares the class to be used again on a different set of data.
+
+    By default, this class computes both a forward cumulative distribution function and an inverse CDF or quantile
+    function.  If only one is needed, the parameter "direction" can be given to compute().  "forward" corresponds to
+    the CDF and "backward" to the quantile / iCDF.
+
+    Once compute() has been called, the CDF can be evaluated by calling the class, or calling self.cdf().  The
+    quantile / iCDF are accessed by calling their associated functions quantile() and icdf() are aliases of each other.
+    These functions accept sets of points and return mapped points with the same shape.
+
+    See https://en.wikipedia.org/wiki/Cumulative_distribution_function for reference.
 
     Parameters
     ----------
