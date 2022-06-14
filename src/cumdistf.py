@@ -25,12 +25,16 @@ class CumulativeDistributionFunction1D:
         constructor.
     direction : str, optional
         See compute() only has effect if density is not None.
+    dtype : np dtype, optional
+        The dtype to use for the density function, defaults to np.float32.  Other functions infer dtype from
+        their inputs.
     """
-    def __init__(self, eval_limits, density=None, direction="both"):
+    def __init__(self, eval_limits, density=None, direction="both", dtype=np.float32):
         # declaration of class variables
         self._res = -1
         self._cdf = None
         self._icdf = None
+        self._dtype = dtype
 
         self.x_min, self.x_max = eval_limits
         if density is None:
@@ -61,6 +65,58 @@ class CumulativeDistributionFunction1D:
         """
         self._density = None
         self._res = -1
+
+    def histogram_points(self, points, res=None):
+        """
+        Use a histogram to convert a set of points into a density.
+
+        Just a convenience wrapper for numpy's histogram function, that correctly sets the limits.
+
+        Parameters
+        ----------
+        points : np array with shape (n,)
+            The points to bin.
+        res : tuple of ints, optional
+            The resolution at which to generate the histogram.  Will throw an error if this parameter is left out
+            and the resolution of the CDF has not been set.  Will be ignored if the resolution is already set.
+
+        Returns
+        -------
+        histo : np array
+            The generated histogram.  It will have a shape equal to the resolution of this CDF.
+
+        """
+        if self._res == -1:
+            if res is None:
+                raise RuntimeError(
+                    "CumulativeDistributionFunction1D: resolution must be specified if it has not already been set."
+                )
+        else:
+            res = self._res
+
+        histo, _ = np.histogram(
+            points,
+            bins=res,
+            range=(self.x_min, self.x_max)
+        )
+        return histo.astype(self._dtype)
+
+    def accumulate_points(self, points, res=None):
+        """
+        Accumulate points into the density.
+
+        Just a chaining of histogram_points() and accumulate_density()
+
+        Parameters
+        ----------
+        points : np array with shape (n)
+            The points to bin.
+        res : int, optional
+            The resolution at which to generate the histogram.  Will throw an error if this parameter is left out
+            and the resolution of the CDF has not been set.  Will be ignored if the resolution is already set.
+
+        """
+        self.accumulate_density(self.histogram_points(points, res))
 
     def compute(self, density=None, direction="both", epsilon=1e-10):
         """
@@ -208,7 +264,7 @@ class CumulativeDistributionFunction1D:
         return self.cdf(points)
 
     @property
-    def x_res(self):
+    def res(self):
         return self._res
 
 
@@ -234,8 +290,11 @@ class CumulativeDistributionFunction2D:
         constructor.
     direction : str, optional
         See compute() only has effect if density is not None.
+    dtype : np dtype, optional
+        The dtype to use for the density function, defaults to np.float32.  Other functions infer dtype from
+        their inputs.
     """
-    def __init__(self, eval_limits, density=None, direction="both"):
+    def __init__(self, eval_limits, density=None, direction="both", dtype=np.float32):
         # declaration of class variables
         self._x_res = -1
         self._y_res = -1
@@ -243,6 +302,7 @@ class CumulativeDistributionFunction2D:
         self._x_cdfs = None
         self._y_icdf = None
         self._x_icdfs = None
+        self._dtype = dtype
 
         self.x_min, self.x_max = eval_limits[0]
         self.y_min, self.y_max = eval_limits[1]
@@ -263,10 +323,65 @@ class CumulativeDistributionFunction2D:
 
         """
         if self._density is None:
-            self._density = np.array(density, dtype=np.float32)
+            self._density = np.array(density, dtype=self._dtype)
             self._x_res, self._y_res = self._density.shape
         else:
-            self._density += np.array(density, dtype=np.float32)
+            self._density += np.array(density, dtype=self._dtype)
+
+    def histogram_points(self, points, res=None):
+        """
+        Use a histogram to convert a set of points into a density.
+
+        Just a convenience wrapper for numpy's histogram function, that correctly sets the limits.
+
+        Parameters
+        ----------
+        points : np array with shape (n, 2)
+            The points to bin.
+        res : 2-tuple of ints, optional
+            The resolution at which to generate the histogram.  Will throw an error if this parameter is left out
+            and the resolution of the CDF has not been set.  Will be ignored if the resolution is already set.
+
+        Returns
+        -------
+        histo : np array
+            The generated histogram.  It will have a shape equal to the resolution of this CDF.
+
+        """
+        if self._x_res == -1 or self._y_res == -1:
+            if res is None:
+                raise RuntimeError(
+                    "CumulativeDistributionFunction2D: resolution must be specified if it has not already been set."
+                )
+            else:
+                x_res, y_res = res
+        else:
+            x_res, y_res = self._x_res, self._y_res
+
+        histo, _, _ = np.histogram2d(
+            points[:, 0],
+            points[:, 1],
+            bins=(x_res, y_res),
+            range=((self.x_min, self.x_max), (self.y_min, self.y_max))
+        )
+        return histo.astype(self._dtype)
+
+    def accumulate_points(self, points, res=None):
+        """
+        Accumulate points into the density.
+
+        Just a chaining of histogram_points() and accumulate_density()
+
+        Parameters
+        ----------
+        points : np array with shape (n, 2)
+            The points to bin.
+        res : 2-tuple of ints, optional
+            The resolution at which to generate the histogram.  Will throw an error if this parameter is left out
+            and the resolution of the CDF has not been set.  Will be ignored if the resolution is already set.
+
+        """
+        self.accumulate_density(self.histogram_points(points, res))
 
     def clear_density(self):
         """
@@ -275,6 +390,12 @@ class CumulativeDistributionFunction2D:
         self._density = None
         self._x_res = -1
         self._y_res = -1
+
+    def set_resolution(self, x_res, y_res):
+        if self._density is not None:
+            raise RuntimeError("CumulativeDistributionFunction2D: resolution can only be set if density is cleared.")
+        else:
+            self._x_res, self._y_res = x_res, y_res
 
     def compute(self, density=None, direction="both", epsilon=1e-10):
         """
@@ -486,3 +607,7 @@ class CumulativeDistributionFunction2D:
     @property
     def y_res(self):
         return self._y_res
+
+    @property
+    def dtype(self):
+        return self._dtype
