@@ -245,10 +245,7 @@ class CumulativeDistributionFunction1D:
         if self._cdf is not None:
             return self._cdf(points).astype(points.dtype)
         else:
-            raise RuntimeError(
-                "CumulativeDensityFunction: Must call compute() with the correct "
-                "direction before evaluation."
-            )
+            raise ComputeRequiredError()
 
     def icdf(self, points):
         """
@@ -276,10 +273,7 @@ class CumulativeDistributionFunction1D:
         if self._cdf is not None:
             return self._icdf(points).astype(points.dtype)
         else:
-            raise RuntimeError(
-                "CumulativeDensityFunction: Must call compute() with the correct "
-                "direction before evaluation."
-            )
+            raise ComputeRequiredError()
 
     def quantile(self, points):
         """Alias for icdf()."""
@@ -587,10 +581,7 @@ class CumulativeDistributionFunction2D:
             y_out = y_out.astype(points.dtype)
             return np.column_stack((x_out, y_out))
         else:
-            raise RuntimeError(
-                "CumulativeDensityFunction: Must call compute() with the correct "
-                "direction before evaluation."
-            )
+            raise ComputeRequiredError()
 
     def icdf(self, points):
         """
@@ -637,10 +628,7 @@ class CumulativeDistributionFunction2D:
             y_out = y_out.astype(points.dtype)
             return np.column_stack((x_out, y_out))
         else:
-            raise RuntimeError(
-                "CumulativeDensityFunction: Must call compute() with the correct "
-                "direction before evaluation."
-            )
+            raise ComputeRequiredError()
 
     def quantile(self, points):
         """Alias for icdf()."""
@@ -661,3 +649,8 @@ class CumulativeDistributionFunction2D:
     @property
     def dtype(self):
         return self._dtype
+
+
+class ComputeRequiredError(RuntimeError):
+    def __str__(self):
+        return "CumulativeDensityFunction: Must call compute() with the correct direction before evaluation."
