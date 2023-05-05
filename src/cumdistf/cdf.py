@@ -297,7 +297,7 @@ class CumulativeDistributionFunction2D:
     region.  These two operations can even be chained to build a mapping between two different non-uniform
     distributions.
 
-    This class acts both computes a CDF / iCDF and also can act as store of the data used to build them.  The
+    This class both computes a CDF / iCDF and also can act as store of the data used to build them.  The
     constructor requires the working domain as a parameter, and may or may not receive a density function.  If a
     density function is provided to the constructor, it will build the CDF immediately, but density can be omitted
     during class construction and added later using the accumulate functions.  Accumulate_density() accepts an already
@@ -569,6 +569,8 @@ class CumulativeDistributionFunction2D:
             # select which x quantile curve to use.
             x_curve = (y_out - self.y_min) * self._y_res / (self.y_max - self.y_min)
             x_curve = np.floor(x_curve).astype("int")
+            # Ensure that x_curve is always < self._y_res (could be equal if y_out = y_max).
+            x_curve = np.where(x_curve < self._y_res, x_curve, self._y_res - 1)
 
             # map the x coordinate.
             x_range = np.arange(x.shape[0])
@@ -614,8 +616,10 @@ class CumulativeDistributionFunction2D:
             y_out = self._y_icdf(y)
 
             # select which x quantile curve to use.
-            x_curve = y_out * (self._y_res - 1)
+            x_curve = y_out * self._y_res
             x_curve = np.floor(x_curve).astype("int")
+            # Ensure that x_curve is always < self._y_res (could be equal if y_out = 1).
+            x_curve = np.where(x_curve < self._y_res, x_curve, self._y_res-1)
 
             # map the x coordinate.
             x_range = np.arange(x.shape[0])
