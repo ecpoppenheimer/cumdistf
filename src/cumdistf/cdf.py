@@ -200,14 +200,14 @@ class CumulativeDistributionFunction1D:
 
             # compute the forward / normal CDF
             if do_forward:
-                self._cdf = interp1d(cumsum, interpolate_x)
+                self._cdf = interp1d(cumsum, interpolate_x, fill_value="extrapolate")
 
             else:
                 self._cdf = None
 
             # compute the inverse CDF
             if do_backward:
-                self._icdf = interp1d(interpolate_x, cumsum)
+                self._icdf = interp1d(interpolate_x, cumsum, fill_value="extrapolate")
             else:
                 self._icdf = None
         else:
@@ -507,9 +507,9 @@ class CumulativeDistributionFunction2D:
 
             # compute the forward / normal CDF
             if do_forward:
-                self._y_cdf = interp1d(y_sum, interpolate_y)
+                self._y_cdf = interp1d(y_sum, interpolate_y, fill_value="extrapolate")
                 self._x_cdfs = [
-                    interp1d(x_sums[:, i], interpolate_x)
+                    interp1d(x_sums[:, i], interpolate_x, fill_value="extrapolate")
                     for i in range(self._y_res)
                 ]
             else:
@@ -518,9 +518,9 @@ class CumulativeDistributionFunction2D:
 
             # compute the inverse CDF
             if do_backward:
-                self._y_icdf = interp1d(interpolate_y, y_sum)
+                self._y_icdf = interp1d(interpolate_y, y_sum, fill_value="extrapolate")
                 self._x_icdfs = [
-                    interp1d(interpolate_x, x_sums[:, i])
+                    interp1d(interpolate_x, x_sums[:, i], fill_value="extrapolate")
                     for i in range(self._y_res)
                 ]
             else:
